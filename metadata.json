@@ -1,0 +1,9 @@
+{
+  "name": "ZX Web - WhatsApp Clone",
+  "description": "A high-fidelity WhatsApp clone featuring real-time AI responses, responsive design, and a modern chat UI/UX, branded as ZX Web.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
