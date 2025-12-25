@@ -10,8 +10,6 @@ import Login from './components/Login';
 import { User, Chat, Message } from './types';
 import { INITIAL_CONTACTS, MOCK_CHATS, MOCK_CALLS } from './constants';
 import { getGeminiResponse } from './services/geminiService';
-import { auth } from './services/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const STORAGE_KEY_USER = 'zx_web_current_user';
 const STORAGE_KEY_CONTACTS = 'zx_web_contacts';
@@ -49,31 +47,6 @@ const App: React.FC = () => {
   const [activeCallContact, setActiveCallContact] = useState<User | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Firebase Auth State Listener
-  useEffect(() => {
-    if (!auth) return;
-
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        // Only map if we don't have a local one or if it's explicitly a new login
-        if (!currentUser || currentUser.id.length > 20) { // Simple check to see if it's a long Firebase UID
-          const mappedUser: User = {
-            id: firebaseUser.uid.substring(0, 8),
-            name: firebaseUser.displayName || firebaseUser.phoneNumber || 'User',
-            avatar: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/200`,
-            status: 'online',
-            about: 'Available on ZX Web',
-            email: firebaseUser.email || undefined,
-            phone: firebaseUser.phoneNumber || undefined
-          };
-          setCurrentUser(mappedUser);
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [currentUser]);
-
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_THEME, theme);
     if (theme === 'dark') {
@@ -86,6 +59,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem(STORAGE_KEY_USER);
     }
   }, [currentUser]);
 
@@ -114,13 +89,10 @@ const App: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-  const handleLogout = async () => {
-    if (auth) {
-      await signOut(auth);
-    }
-    localStorage.removeItem(STORAGE_KEY_USER);
+  const handleLogout = () => {
     setCurrentUser(null);
-    window.location.reload();
+    setActiveChatId(null);
+    // Reload to clear state if necessary, or just rely on setCurrentUser(null)
   };
 
   const markChatAsRead = useCallback((chatId: string) => {
@@ -147,7 +119,6 @@ const App: React.FC = () => {
   };
 
   const handleAddContact = useCallback((name: string, about: string = 'Available on ZX Web') => {
-    // Generate an easy 6-character user ID
     const easyId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const newUser: User = {
       id: easyId,

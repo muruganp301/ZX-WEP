@@ -1,13 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
-import { auth } from '../services/firebase';
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  RecaptchaVerifier, 
-  signInWithPhoneNumber
-} from 'firebase/auth';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -21,49 +14,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [method, setMethod] = useState<LoginMethod>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check if Firebase is available
-    if (!auth) {
-      console.warn("Firebase is not configured. Google and Phone login will run in simulation mode.");
-    }
-  }, []);
-
-  const handleGmailLogin = async () => {
-    if (!auth) {
-      simulateLogin('gmail');
-      return;
-    }
-
-    try {
-      setStep('loading');
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      const mockUser: User = {
-        id: user.uid.substring(0, 8),
-        name: user.displayName || 'Google User',
-        avatar: user.photoURL || 'https://picsum.photos/seed/google/200',
-        status: 'online',
-        about: 'Available on ZX Web',
-        email: user.email || undefined
-      };
-      onLogin(mockUser);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message);
-      setStep('choice');
-    }
+  const handleGmailLogin = () => {
+    simulateLogin('gmail');
   };
 
   const handleGuestLogin = () => {
     setMethod('guest');
     setStep('loading');
     setTimeout(() => {
-      // Generate an easy 6-character Guest ID
       const easyId = Math.random().toString(36).substring(2, 8).toUpperCase();
       const guestUser: User = {
         id: `guest-${easyId}`,
@@ -76,32 +36,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }, 800);
   };
 
-  const handlePhoneSubmit = async (e: React.FormEvent) => {
+  const handlePhoneSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (phoneNumber.length < 10) return;
-
-    if (!auth) {
-      setMethod('phone');
-      setStep('otp');
-      return;
-    }
-
-    try {
-      setStep('loading');
-      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible'
-      });
-      
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
-      setConfirmationResult(confirmation);
-      setMethod('phone');
-      setStep('otp');
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message);
-      setStep('phone');
-    }
+    if (phoneNumber.length < 8) return;
+    setMethod('phone');
+    setStep('otp');
   };
 
   const simulateLogin = (m: LoginMethod) => {
@@ -110,7 +49,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const easyId = Math.random().toString(36).substring(2, 8).toUpperCase();
       const mockUser: User = {
         id: easyId,
-        name: m === 'gmail' ? 'Demo User' : phoneNumber,
+        name: m === 'gmail' ? 'Google Demo User' : (phoneNumber || 'User'),
         avatar: `https://picsum.photos/seed/${easyId}/200`,
         status: 'online',
         about: 'Hey there! I am using ZX Web.',
@@ -130,34 +69,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
 
     if (newOtp.every(v => v !== '')) {
-      verifyOtp(newOtp.join(''));
-    }
-  };
-
-  const verifyOtp = async (code: string) => {
-    if (!confirmationResult) {
-      simulateLogin('phone');
-      return;
-    }
-
-    try {
-      setStep('loading');
-      const result = await confirmationResult.confirm(code);
-      const user = result.user;
-      const mockUser: User = {
-        id: user.uid.substring(0, 8),
-        name: user.phoneNumber || 'Phone User',
-        avatar: `https://picsum.photos/seed/${user.uid}/200`,
-        status: 'online',
-        about: 'Hey there! I am using ZX Web.',
-        phone: user.phoneNumber || undefined
-      };
-      onLogin(mockUser);
-    } catch (err: any) {
-      console.error(err);
-      setError("Invalid verification code. Please try again.");
-      setStep('otp');
-      setOtp(['', '', '', '', '', '']);
+      simulateLogin(method);
     }
   };
 
@@ -225,7 +137,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <span>Back</span>
               </button>
               <h2 className="text-xl font-semibold text-gray-700 dark:text-[#e9edef] mb-2">Enter phone number</h2>
-              <p className="text-gray-500 dark:text-[#8696a0] text-sm mb-6 font-light leading-relaxed">Include your country code (e.g. +1 for USA).</p>
+              <p className="text-gray-500 dark:text-[#8696a0] text-sm mb-6 font-light leading-relaxed">Enter any number for demonstration.</p>
               
               <form onSubmit={handlePhoneSubmit}>
                 <div className="flex space-x-2 border-b-2 border-[#00a884] mb-8">
@@ -241,10 +153,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
                 <button 
                   type="submit"
-                  disabled={phoneNumber.length < 8}
-                  className={`w-full py-3 rounded transition shadow-sm text-white font-semibold ${phoneNumber.length >= 8 ? 'bg-[#00a884] hover:bg-[#008f6f]' : 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500'}`}
+                  disabled={phoneNumber.length < 5}
+                  className={`w-full py-3 rounded transition shadow-sm text-white font-semibold ${phoneNumber.length >= 5 ? 'bg-[#00a884] hover:bg-[#008f6f]' : 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500'}`}
                 >
-                  SEND CODE
+                  NEXT
                 </button>
               </form>
             </div>
@@ -252,7 +164,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           {step === 'otp' && (
             <div className="w-full text-center">
-               <button onClick={() => setStep(method === 'gmail' ? 'choice' : 'phone')} className="text-[#00a884] mb-6 flex items-center space-x-1 hover:underline text-left">
+               <button onClick={() => setStep('phone')} className="text-[#00a884] mb-6 flex items-center space-x-1 hover:underline text-left">
                 <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
                 <span>Back</span>
               </button>
@@ -260,7 +172,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 Verify Identity
               </h2>
               <p className="text-gray-500 dark:text-[#8696a0] text-sm mb-6">
-                Enter the 6-digit verification code sent to your {method === 'gmail' ? 'Google account' : 'phone'}.
+                Enter any 6-digit code to continue.
               </p>
               
               <div className="flex justify-between space-x-2 mb-8">
